@@ -1,0 +1,12 @@
+*.jpg
+*.jpeg
+*.JPG
+*.png
+*.gif
+*.tfrecord
+*.json
+*.pbtxt
+*.xml
+*.config
+*.csv
+
