@@ -10,7 +10,7 @@ import PIL.Image
 from collections import Counter
 
 rootDir = 'test'
-tfRecordName = 'x_classes/test_x_classes.tfrecord'
+tfRecordName = 'tfrecords/test_p3p2_x_classes.tfrecord'
  
 flags = tf.app.flags
 flags.DEFINE_string('output_path', tfRecordName, 'Path to output TFRecord')
