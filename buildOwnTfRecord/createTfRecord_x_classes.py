@@ -15,7 +15,7 @@ tfRecordName = 'tfrecords/test_p3p2_x_classes.tfrecord'
 flags = tf.app.flags
 flags.DEFINE_string('output_path', tfRecordName, 'Path to output TFRecord')
 FLAGS = flags.FLAGS
-json_file = 'project3.json'
+json_file = 'project_3_2.json'
 with open(json_file, "r") as read_file:
      data = json.load(read_file)
 labels_in_dataset = []
