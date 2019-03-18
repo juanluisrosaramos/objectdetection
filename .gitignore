@@ -5,8 +5,11 @@
 *.gif
 *.tfrecord
 *.json
+*.webp
+*.mpo
 *.pbtxt
 *.xml
 *.config
 *.csv
-
+detections/cocoapi/
+labelbox_data_export/
