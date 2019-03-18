@@ -1,7 +1,6 @@
 import tensorflow as tf
 import os
 import io
-import pprint
 import json
 from object_detection.utils import dataset_util
 from collections import defaultdict
@@ -9,13 +8,13 @@ from PIL import Image
 import PIL.Image
 from collections import Counter
 
-rootDir = 'test'
+rootDir = 'images'
 tfRecordName = 'tfrecords/test_p3p2_x_classes.tfrecord'
  
 flags = tf.app.flags
 flags.DEFINE_string('output_path', tfRecordName, 'Path to output TFRecord')
 FLAGS = flags.FLAGS
-json_file = 'project_3_2.json'
+json_file = 'project3.json'
 with open(json_file, "r") as read_file:
      data = json.load(read_file)
 labels_in_dataset = []
@@ -116,23 +115,69 @@ def get_class_id(label):
     }
     return (mappings[label])
 
+def resize(image_path,
+           xml_path,
+           newSize,
+           output_path,
+           save_box_images=False,
+           verbose=False):
+
+    image = cv2.imread(image_path)
+
+    scale_x = newSize[0] / image.shape[1]
+    scale_y = newSize[1] / image.shape[0]
+
+    image = cv2.resize(image, (newSize[0], newSize[1]))
+
+    newBoxes = []
+    xmlRoot = ET.parse(xml_path).getroot()
+    for member in xmlRoot.findall('object'):
+        bndbox = member.find('bndbox')
+
+        xmin = bndbox.find('xmin')
+        ymin = bndbox.find('ymin')
+        xmax = bndbox.find('xmax')
+        ymax = bndbox.find('ymax')
+
+        xmin.text = str(np.round(int(xmin.text) * scale_x))
+        ymin.text = str(np.round(int(ymin.text) * scale_y))
+        xmax.text = str(np.round(int(xmax.text) * scale_x))
+        ymax.text = str(np.round(int(ymax.text) * scale_y))
+
+        newBoxes.append([
+            1,
+            0,
+            int(float(xmin.text)),
+            int(float(ymin.text)),
+            int(float(xmax.text)),
+            int(float(ymax.text))
+            ])
+
+    (_, file_name) = get_file_name(image_path)
+    cv2.imwrite(os.path.join(output_path, '_new'.join([file_name, '.jpg'])), image)
+
+    tree = ET.ElementTree(xmlRoot)
+    tree.write('{}/{}_new.xml'.format(output_path, file_name.split('.')[0]))
+    if int(save_box_images):
+        save_path = '{}/boxes_images/boxed_{}'.format(output_path, ''.join([file_name, '.jpg']))
+        draw_box(newBoxes, image, save_path)
+        
 def create_tf_example(root,image_file):
   
   filename, file_extension = os.path.splitext(image_file)
-  with tf.gfile.GFile(os.path.join(root, image_file), 'rb') as fid:
-     encoded_jpg = fid.read()
-  encoded_jpg_io = io.BytesIO(encoded_jpg)
-  image = PIL.Image.open(encoded_jpg_io)
+  
 
-  if image.format != 'JPEG':
-    raise ValueError('Image format not JPEG')
 
   with tf.gfile.GFile(os.path.join(root, image_file), 'rb') as fid:
     encoded_jpg = fid.read()
+
+  encoded_jpg_io = io.BytesIO(encoded_jpg)
+  image = PIL.Image.open(encoded_jpg_io)
   encoded_jpg_io = io.BytesIO(encoded_jpg)
   width, height = image.size
   sizes.append(tuple(image.size))
-              
+  if image.format != 'JPEG':
+    raise ValueError('Image format not JPEG')       
   
   print(image_file,width,height)
   BB = get_cordinates(filename)
@@ -161,7 +206,7 @@ def create_tf_example(root,image_file):
         ymin.append(float(min(Y)/height))
         ymax.append(float(max(Y)/height)) 
         classes_id.append(get_class_id(item[0]))
-        print ('CLASS_NAME:',item[0],' CLASS_ID:',get_class_id(item[0]))
+        #print ('CLASS_NAME:',item[0],' CLASS_ID:',get_class_id(item[0]))
         classes_text.append(item[0].encode('utf8'))  
           
     enter = True
