@@ -7,8 +7,11 @@ from collections import defaultdict
 from PIL import Image
 import PIL.Image
 from collections import Counter
+import cv2 
+import imutils
+import numpy as np
 
-rootDir = 'images'
+rootDir = 'test'
 tfRecordName = 'tfrecords/test_p3p2_x_classes.tfrecord'
  
 flags = tf.app.flags
@@ -114,72 +117,42 @@ def get_class_id(label):
         'erosion/abrasion/attrition/abfraction' : 9
     }
     return (mappings[label])
+      
+def drawBox(boxes, image):
+    for i in range(0, len(boxes)):
+        # changed color and width to make it visible
+        # drawBox([[1, 0, float(xmin[0]), float(ymin[0]), float(xmax[0]), float(ymax[0])]], image)
+        cv2.rectangle(image, (boxes[i][2], boxes[i][3]), (boxes[i][4], boxes[i][5]), (255, 0, 0), 1)
+    cv2.imshow("img", image)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
 
-def resize(image_path,
-           xml_path,
-           newSize,
-           output_path,
-           save_box_images=False,
-           verbose=False):
-
-    image = cv2.imread(image_path)
-
-    scale_x = newSize[0] / image.shape[1]
-    scale_y = newSize[1] / image.shape[0]
-
-    image = cv2.resize(image, (newSize[0], newSize[1]))
-
-    newBoxes = []
-    xmlRoot = ET.parse(xml_path).getroot()
-    for member in xmlRoot.findall('object'):
-        bndbox = member.find('bndbox')
-
-        xmin = bndbox.find('xmin')
-        ymin = bndbox.find('ymin')
-        xmax = bndbox.find('xmax')
-        ymax = bndbox.find('ymax')
-
-        xmin.text = str(np.round(int(xmin.text) * scale_x))
-        ymin.text = str(np.round(int(ymin.text) * scale_y))
-        xmax.text = str(np.round(int(xmax.text) * scale_x))
-        ymax.text = str(np.round(int(ymax.text) * scale_y))
-
-        newBoxes.append([
-            1,
-            0,
-            int(float(xmin.text)),
-            int(float(ymin.text)),
-            int(float(xmax.text)),
-            int(float(ymax.text))
-            ])
-
-    (_, file_name) = get_file_name(image_path)
-    cv2.imwrite(os.path.join(output_path, '_new'.join([file_name, '.jpg'])), image)
-
-    tree = ET.ElementTree(xmlRoot)
-    tree.write('{}/{}_new.xml'.format(output_path, file_name.split('.')[0]))
-    if int(save_box_images):
-        save_path = '{}/boxes_images/boxed_{}'.format(output_path, ''.join([file_name, '.jpg']))
-        draw_box(newBoxes, image, save_path)
-        
 def create_tf_example(root,image_file):
   
   filename, file_extension = os.path.splitext(image_file)
   
+  image = cv2.imread(os.path.join(root, image_file),3)
+  height, width, channels = image.shape
+#   cv2.imshow('dst_rt', image)
+#   cv2.waitKey(0)
+#   cv2.destroyAllWindows()
+# In case of resizing of the image we have to rescale the coordinates of the BB
+# we initialize to 1 
+  scale_x = 1
+  scale_y = 1
+  if width > 1200:
+    #coordinates
+    #print ('Image: ',filename,' width ',width, ' resized')
+    image = imutils.resize(image, width=1200)
+    scale_x = image.shape[1] / width
+    scale_y = image.shape[0] / height
+    print('RESCALING y ',image.shape[0],'/ por' , height)
 
+    height, width,channels = image.shape
+    # print ('New size ',width,',',height)
+  encoded_jpg = cv2.imencode('.jpg',image)[1].tostring()
+  sizes.append(tuple(image.shape)) 
 
-  with tf.gfile.GFile(os.path.join(root, image_file), 'rb') as fid:
-    encoded_jpg = fid.read()
-
-  encoded_jpg_io = io.BytesIO(encoded_jpg)
-  image = PIL.Image.open(encoded_jpg_io)
-  encoded_jpg_io = io.BytesIO(encoded_jpg)
-  width, height = image.size
-  sizes.append(tuple(image.size))
-  if image.format != 'JPEG':
-    raise ValueError('Image format not JPEG')       
-  
-  print(image_file,width,height)
   BB = get_cordinates(filename)
   xmin = []
   ymin = []
@@ -187,28 +160,44 @@ def create_tf_example(root,image_file):
   xmax = []
   classes_id = []
   classes_text = []
-  
+
+  #xmin.text = str(np.round(int(xmin.text) * scale_x))
+
   #for each label in all labels
   # BB = all labels
   # item = one label (4 coordinates, 1 class id, 1 class name)    
+  print('SCALE_X',scale_x,' SCALE_Y',scale_y)
   if BB:
     
     for item in BB:
         coordinates = item[1]                
         Y=[]
         X=[]
+        # printmaxX=[]
+        # printmaxY=[]
+        # printminX=[]
+        # printminY=[]
         for coord in coordinates:
             Y.append(coord['y'])
             X.append(coord['x'])
             
-        xmin.append(float(min(X)/width))
-        xmax.append(float(max(X)/width))
-        ymin.append(float(min(Y)/height))
-        ymax.append(float(max(Y)/height)) 
+        xmin.append(float(np.round(min(X) * scale_x)/width))
+        # print('MIN X scaled ',float(np.round(min(X) * scale_x)))
+        # print('MIN X NO scaled ',float(np.round(min(X) * 1)))
+        xmax.append(float(np.round(max(X) * scale_x)/width))
+        ymin.append(float(np.round(min(Y) * scale_y)/height))
+        ymax.append(float(np.round(max(Y) * scale_y)/height))
+
+        # printminX.append(float(np.round(min(X) * scale_x)))
+        # printmaxX.append(float(np.round(max(X) * scale_x)))
+        # printminY.append(float(np.round(min(Y) * scale_y)))
+        # printmaxY.append(float(np.round(max(Y) * scale_y)))
         classes_id.append(get_class_id(item[0]))
         #print ('CLASS_NAME:',item[0],' CLASS_ID:',get_class_id(item[0]))
         classes_text.append(item[0].encode('utf8'))  
-          
+        #print('xmin',float(xmin[0]),'xmax',xmax,'ymin',ymin,'ymax',ymax)      
+       # drawBox([[1, 0, int(printminX[0]), int(printminY[0]), int(printmaxX[0]), int(printmaxY[0])]],np.array(image))
+
     enter = True
     if enter:         
         filename = image_file
@@ -250,9 +239,9 @@ def main(_):
    
   print ('labels in dataset',Counter(labels_in_dataset))
   print ('images in dataset',len(images))  
-  av_weight = sum(v[0] for v in list(sizes)) / float(len(sizes))
-  av_height = sum(v[1] for v in list(sizes)) / float(len(sizes))
-  print ('Average weight:',av_weight, 'Average height:',av_height)
+  av_width = sum(v[1] for v in list(sizes)) / float(len(sizes))
+  av_height = sum(v[0] for v in list(sizes)) / float(len(sizes))
+  print ('Average width:',av_width, 'Average height:',av_height)
 
 if __name__ == '__main__':
   tf.app.run()
