@@ -9,7 +9,8 @@
 *.mpo
 *.pbtxt
 *.xml
-*.config
+#*.config
 *.csv
+*.zip
 detections/cocoapi/
 labelbox_data_export/
