@@ -14,3 +14,4 @@
 *.zip
 detections/cocoapi/
 labelbox_data_export/
+outputs_x_classes8/frozen_inference_graph.pb

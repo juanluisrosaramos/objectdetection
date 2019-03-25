@@ -29,6 +29,8 @@ def compute_iou(groundtruth_box, detection_box):
 
     boxAArea = (g_xmax - g_xmin + 1) * (g_ymax - g_ymin + 1)
     boxBArea = (d_xmax - d_xmin + 1) * (d_ymax - d_ymin + 1)
+    # print(boxAArea)
+    # print(boxBArea)
 
     return intersection / float(boxAArea + boxBArea - intersection)
 
@@ -62,9 +64,11 @@ def process_detections(detections_record, categories):
             for i in range(len(groundtruth_boxes)):
                 for j in range(len(detection_boxes)):
                     iou = compute_iou(groundtruth_boxes[i], detection_boxes[j])
+                    #print (groundtruth_boxes[i], detection_boxes[j])
                     
                     if iou > IOU_THRESHOLD:
                         matches.append([i, j, iou])
+                        #print(matches.append([i, j, iou]))
                     
             matches = np.array(matches)
             if matches.shape[0] > 0:
@@ -81,7 +85,8 @@ def process_detections(detections_record, categories):
                 
                 # Remove duplicate ground truths from the list.
                 matches = matches[np.unique(matches[:,0], return_index=True)[1]]
-                
+            
+            #print('len(groundtruth_boxes)',len(groundtruth_boxes))
             for i in range(len(groundtruth_boxes)):
                 if matches.shape[0] > 0 and matches[matches[:,0] == i].shape[0] == 1:
                     confusion_matrix[groundtruth_classes[i] - 1][detection_classes[int(matches[matches[:,0] == i, 1][0])] - 1] += 1 
